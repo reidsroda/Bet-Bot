@@ -7,6 +7,9 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains 
 import pandas as pd
 import time
+import warnings
+
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 driver = webdriver.Chrome()
@@ -37,20 +40,23 @@ driver.find_element(By.XPATH, "//*[text()='Basketball']").click()
 time.sleep(10)
 
 
-df = pd.DataFrame(columns = ["Team1", "Team2"])
+df = pd.DataFrame(columns = ["Team1", "Team2", "Total"])
 
 teams = driver.find_elements(By.CLASS_NAME, 'event-list__item__details__teams__team')
-#totals = driver.find_elements(By.CLASS_NAME, 'offerings market--two-row market-5')
+totals = driver.find_elements(By.XPATH, "//*[contains(@class, 'odds-description')]")
 
 #Finding Totals
 #for total in totals:
-    #game_total = totals.find_element(By.CLASS_NAME, 'pull-left odds-description')
-    #print(game_total.text)
+    #if "o" in total.text or "u" in total.text:
+        #print("Total is ", total.text)
+    
+
 
 #Finding Matchups
 for i in range(0, len(teams) - 1, 2):
-    new_row = {"Team1": teams[i].text, "Team2": teams[i+1].text}
-    df = df.append(new_row, ignore_index = True)
+     if "o" in totals[i].text or "u" in totals[i].text:      
+        new_row = {"Team1": teams[i].text, "Team2": teams[i+1].text, "Total": totals[i].text}
+        df = df.append(new_row, ignore_index = True)
     
         
     
