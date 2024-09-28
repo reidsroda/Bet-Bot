@@ -30,33 +30,31 @@ time.sleep(5)
 driver.find_element(By.XPATH, '/html/body/div[1]/div/header/div[2]/div[1]/div[2]').click()
 time.sleep(1)
 driver.find_element(By.XPATH, '/html/body/div[1]/div/header/div[2]/div[1]/div[2]/div/div[1]').click()
-time.sleep(7)
+time.sleep(20)
 iframe = driver.find_element(By.ID, 'ultra-live')
 driver.switch_to.frame(iframe)
 driver.find_element(By.XPATH, "//*[text()='Basketball']").click()
-time.sleep(3)
+time.sleep(10)
 
 
-#Scrape Matchup Data
 df = pd.DataFrame(columns = ["Team1", "Team2"])
 
 teams = driver.find_elements(By.CLASS_NAME, 'event-list__item__details__teams__team')
-i = 0
+#totals = driver.find_elements(By.CLASS_NAME, 'offerings market--two-row market-5')
 
-for team in teams:
-    if i % 2 == 0:
-        test.loc[i, "Team1"] = team.text
-    if i % 2 == 1:
-        test.loc[i, "Team2"] = team.text
+#Finding Totals
+#for total in totals:
+    #game_total = totals.find_element(By.CLASS_NAME, 'pull-left odds-description')
+    #print(game_total.text)
+
+#Finding Matchups
+for i in range(0, len(teams) - 1, 2):
+    new_row = {"Team1": teams[i].text, "Team2": teams[i+1].text}
+    df = df.append(new_row, ignore_index = True)
+    
         
     
-#for matchup in matchups:
-#print("Team Name: " + driver.find_elements(By.CLASS_NAME, 'event-list__item__details__teams__team').text)
-    
-    
-#new_row = {"Team1": team1, "Team2": team2}
-#df = df.append(new_row, ignore_index = True)
-#print(df)
+print(df)
 time.sleep(10)
 
 
