@@ -33,7 +33,7 @@ time.sleep(5)
 driver.find_element(By.XPATH, '/html/body/div[1]/div/header/div[2]/div[1]/div[2]').click()
 time.sleep(1)
 driver.find_element(By.XPATH, '/html/body/div[1]/div/header/div[2]/div[1]/div[2]/div/div[1]').click()
-time.sleep(20)
+time.sleep(10)
 iframe = driver.find_element(By.ID, 'ultra-live')
 driver.switch_to.frame(iframe)
 driver.find_element(By.XPATH, "//*[text()='Basketball']").click()
@@ -42,25 +42,36 @@ time.sleep(10)
 
 df = pd.DataFrame(columns = ["Team1", "Team2", "Total"])
 
-teams = driver.find_elements(By.CLASS_NAME, 'event-list__item__details__teams__team')
-totals = driver.find_elements(By.XPATH, "//*[contains(@class, 'odds-description')]")
+#teams = driver.find_elements(By.CLASS_NAME, 'event-list__item__details__teams__team')
+matchups = driver.find_elements(By.CLASS_NAME, 'event-list__item')
+
+
+for matchup in matchups:
+    class_att = matchup.get_attribute("class")
+    classes = class_att.split()
+    if all("block" not in cls.lower() for cls in classes):
+        teams = matchup.find_elements(By.CLASS_NAME, 'event-list__item__details__teams__team')
+        live_lines = matchup.find_elements(By.XPATH, "//*[contains(@class, 'odds-description')]")
+        new_row = {"Team1": teams[0].text, "Team2": teams[1].text, "Total": live_lines[2].text}
+        df = df.append(new_row, ignore_index = True)
+        
+print(df)
 
 #Finding Totals
-#for total in totals:
+"""
+for total in totals:
     #if "o" in total.text or "u" in total.text:
         #print("Total is ", total.text)
-    
+"""    
 
 
 #Finding Matchups
+"""
 for i in range(0, len(teams) - 1, 2):
-     if "o" in totals[i].text or "u" in totals[i].text:      
-        new_row = {"Team1": teams[i].text, "Team2": teams[i+1].text, "Total": totals[i].text}
-        df = df.append(new_row, ignore_index = True)
-    
-        
-    
-print(df)
+     #if "o" in totals[i].text or "u" in totals[i].text:      
+        #new_row = {"Team1": teams[i].text, "Team2": teams[i+1].text, "Total": totals[i].text}
+        #df = df.append(new_row, ignore_index = True)
+"""    
 time.sleep(10)
 
 
