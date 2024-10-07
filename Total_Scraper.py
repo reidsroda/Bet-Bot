@@ -9,6 +9,7 @@ import pandas as pd
 import time
 import warnings
 
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
@@ -20,6 +21,9 @@ username = "ACR75470"
 password = "P9N7"
 wait = WebDriverWait(driver, 30)
 
+#Data Storage
+df = pd.DataFrame(columns = ["Team1", "Team2", "Over_Line", "Over_Odds", "Under_Line", "Under_Odds", "Time"])
+Prematch_Totals = pd.read_csv("Prematch_Totals.csv")
 
 #Login to Website
 driver.find_element(By.NAME, "customerID").send_keys(username)
@@ -33,48 +37,53 @@ time.sleep(5)
 driver.find_element(By.XPATH, '/html/body/div[1]/div/header/div[2]/div[1]/div[2]').click()
 time.sleep(1)
 driver.find_element(By.XPATH, '/html/body/div[1]/div/header/div[2]/div[1]/div[2]/div/div[1]').click()
-time.sleep(10)
+time.sleep(15)
 iframe = driver.find_element(By.ID, 'ultra-live')
 driver.switch_to.frame(iframe)
 driver.find_element(By.XPATH, "//*[text()='Basketball']").click()
-time.sleep(10)
+time.sleep(15)
+
+#Scrape Live Matchup Data
+for i in range(10):
+    matchups = driver.find_elements(By.CLASS_NAME, 'event-list__item')
+    for matchup in matchups:
+        class_att = matchup.get_attribute("class")
+        classes = class_att.split()
+        if all("block" not in cls.lower() for cls in classes):
+            teams = matchup.find_elements(By.CLASS_NAME, 'event-list__item__details__teams__team')
+            col_lines = matchup.find_elements(By.XPATH, ".//*[contains(@class, 'market-5')]")
+            for live_line in col_lines:
+                lines = live_line.find_elements(By.XPATH, ".//*[contains(@class, 'pull')]")
+                if len(lines) == 4:
+                    if lines[0].text:
+                        new_row = {"Team1": teams[0].text.split(" ")[-1], "Team2": teams[1].text.split(" ")[-1], "Over_Line": float(lines[0].text[1:]), "Over_Odds": float(lines[1].text), "Under_Line": float(lines[2].text[1:]), "Under_Odds": float(lines[3].text), "Time": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(time.time()))}
+                        df = df.append(new_row, ignore_index = True)
+                        merged_df = pd.merge(df, Prematch_Totals)
+                        #merged_df = pd.merge(df, Prematch_Totals, on=['Team1', 'Team2'])
 
 
-df = pd.DataFrame(columns = ["Team1", "Team2", "Total"])
-
-#teams = driver.find_elements(By.CLASS_NAME, 'event-list__item__details__teams__team')
-matchups = driver.find_elements(By.CLASS_NAME, 'event-list__item')
+df.to_csv("Live_Lines_Database.csv", index = False)
 
 
-for matchup in matchups:
-    class_att = matchup.get_attribute("class")
-    classes = class_att.split()
-    if all("block" not in cls.lower() for cls in classes):
-        teams = matchup.find_elements(By.CLASS_NAME, 'event-list__item__details__teams__team')
-        live_lines = matchup.find_elements(By.XPATH, "//*[contains(@class, 'odds-description')]")
-        new_row = {"Team1": teams[0].text, "Team2": teams[1].text, "Total": live_lines[2].text}
-        df = df.append(new_row, ignore_index = True)
-        
-print(df)
 
-#Finding Totals
+#Compare Live Matchup Data with Original Data
+#merged_df = pd.merge(df, Prematch_Totals, on=['Team1', 'Team2'])
+merged_df.to_csv("merged_df.csv", index = False)
+
+
 """
-for total in totals:
-    #if "o" in total.text or "u" in total.text:
-        #print("Total is ", total.text)
-"""    
+#Determine Which Games are outside Algorithm Range
+for i in range(len(merged_df)):
+    if abs(merged_df.loc[i,'Over_Line'] - merged_df.loc[i,'Prematch_Total']) > 13:
+        if (merged_df.loc[i,'Over_Line'] > merged_df.loc[i,'Prematch_Total']):
+            print('Bet on Under: ' + merged_df.loc[i, "Team1"] + " and " + mmerged_df.loc[i, "Team2"])
+        else:
+            print("Bet on Over"
 
+print(Prematch_Totals)
+"""       
+      
 
-#Finding Matchups
-"""
-for i in range(0, len(teams) - 1, 2):
-     #if "o" in totals[i].text or "u" in totals[i].text:      
-        #new_row = {"Team1": teams[i].text, "Team2": teams[i+1].text, "Total": totals[i].text}
-        #df = df.append(new_row, ignore_index = True)
-"""    
-time.sleep(10)
-
-
+          
 
 driver.close()
-
