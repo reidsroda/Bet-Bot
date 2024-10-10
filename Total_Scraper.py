@@ -57,6 +57,7 @@ total_height = driver.execute_script("return arguments[0].scrollHeight", event_c
 scroll_main = driver.find_element(By.ID, "scrollbar-main") 
 
 #Scroll to Bottom of Webpage to Load All Data
+
 x = 0
 while True:
     driver.execute_script("arguments[0].scrollBy(0, 250)", scroll_main)
@@ -64,98 +65,190 @@ while True:
     x += 250
     if x > (total_height - 250):
         break
+        
 
 #Function to Place Bets        
-#Bug during error testing: Will not recognize the type of error by text
-def place_bet(Prematch_Total):
+def place_bet(Prematch_Total, bet_selection, betting_line, betting_odds):
+    #Input set bet amounts
+    bet_selection.click()
+    time.sleep(1)
     bet_slide = driver.find_element(By.CLASS_NAME, "bet-list")
     bet_slide.find_element(By.CLASS_NAME, "form-control").click()
     bet_slide.find_element(By.CLASS_NAME, "form-control").clear()
     bet_slide.find_element(By.CLASS_NAME, "form-control").send_keys(bet_amount)
-    time.sleep(3)
-    #driver.find_element(By.XPATH, "//*[@id='bet-slip-process-all']").click()
+    error_words = ["Not", "Odds", "Line"]
+    footer_box = driver.find_element(By.CLASS_NAME, "bet-footer__container")
+    footer_messege = footer_box.find_element(By.CLASS_NAME, "ng-binding").text
+    #Check if error messege
+    if "Not" in footer_messege or "Line" in footer_messege or "Odds" in footer_messege:
+        return error_handler(Prematch_Total)
     
-    #Check for errors: insufficient funds, min bet, odds changed, no longer available
-    error_box = driver.find_element(By.CLASS_NAME, "bet-footer__container")
-    """
-    try: 
-        error_present = error_box.find_element(By.XPATH, "//*[@id='139191531-m-5-accept']/text()")
-        print(error_present)
-        
-        
-        #Check for Not Available
-        if "Not" in error_present:
-            if "Accept" in error_box.find_element(By.XPATH, ".//*[contains(@class, 'fa-check-circle')]").text:
-                #error_box.find_element(By.XPATH, ".//*[contains(@class, 'fa-check-circle')]").click()
-                #driver.find_element(By.CLASS_NAME, "toggle-bet-slip__label_and_value").click()
-                print("Error: Line No Longer Available")
-        if "changed" in error_present:
-            button_box = error_box.find_element(By.CLASS_NAME, "bet-odds-accept")
-            accept_button = button_box.find_element(By.CLASS_NAME, "ng-binding").text
-            if "Accept" in accept_button:
-                accept_button.click()
-                
-                
-            print("Error: Line has Changed")
-        
+    #Set selected bet odds
+    #updated_line = float(driver.find_element(By.CLASS_NAME, "bet-list").find_element(By.XPATH, ".//*[contains(@class, 'bet-odd-name__button-shown')]").text.split(" ")[-1])
+    
+    updated_odds = float(driver.find_element(By.CLASS_NAME, "bet-list").find_element(By.XPATH, ".//*[contains(@class, 'bet-odd-value')]").text)
+    
+    
+    
+    #Try to place bet right away
+    #driver.find_element(By.XPATH, "//*[@id='bet-slip-process-all']").click()
+    try:
+        #elem = driver.find_element(By.CLASS_NAME, "bet-footer__container").find_element(By.XPATH, ".//*[contains(@class, 'success')]")
+        driver.find_element(By.XPATH, "//*[contains(@class, 'fa-times')]").click()
+        time.sleep(3)
+        return f"Bet Placed Right Away at {betting_line} with {updated_odds} odds"
+
     except NoSuchElementException:
-        print("No Error, Could have Placed")
-       
+        return error_handler(Prematch_Total)
         
-    driver.find_element(By.XPATH, ".//*[contains(@class, 'fa-times')]").click()
-         """
-               
+    
+
+
+
+def error_handler(Prematch_Total):
+    footer_box = driver.find_element(By.CLASS_NAME, "bet-footer__container")
+    footer_messege = footer_box.find_element(By.CLASS_NAME, "ng-binding").text
+    if "Not" in footer_messege:
+        try:
+            #this is the accept button
+            footer_box.find_element(By.CLASS_NAME, "bet-odds-accept").find_element(By.CLASS_NAME, "ng-binding").click()
+            time.sleep(3)
+            return
+        except NoSuchElementException:
+            error_handler(Prematch_Total)
+            
+    if "Line" in footer_messege:
+        new_line = float(footer_messege.split(" ")[-1])
+        if abs(new_line - Prematch_Total) >= 13:
+            try:
+                footer_box.find_element(By.CLASS_NAME, "bet-odds-accept").find_element(By.CLASS_NAME, "ng-binding").click()
+                #driver.find_element(By.XPATH, "//*[@id='bet-slip-process-all']").click()
+                time.sleep(5)
+                try:
+                    #elem = driver.find_element(By.CLASS_NAME, "bet-footer__container").find_element(By.XPATH, ".//*[contains(@class, 'success')]")
+                    driver.find_element(By.XPATH, "//*[contains(@class, 'fa-times')]").click()
+                    time.sleep(3)
+                    return f"Bet Placed After Line Adjustment at {new_line}"
+            
+                except NoSuchElementException:
+                    error_handler(Prematch_Total)
+                
+            except NoSuchElementException:
+                error_handler(Prematch_Total)
+        
+    if "Odds" in footer_messege:
+        new_odds = float(footer_messege.split(" ")[-1])
+        if new_odds > -120:
+            try:
+                footer_box.find_element(By.CLASS_NAME, "bet-odds-accept").find_element(By.CLASS_NAME, "ng-binding").click()
+                #driver.find_element(By.XPATH, "//*[@id='bet-slip-process-all']").click()
+                time.sleep(5)
+                try:
+                    #elem = driver.find_element(By.CLASS_NAME, "bet-footer__container").find_element(By.XPATH, ".//*[contains(@class, 'success')]")
+                    driver.find_element(By.XPATH, "//*[contains(@class, 'fa-times')]").click()
+                    time.sleep(3)
+                    return f"Bet Placed after Odds Adjustment at {new_odds} odds"
+            
+                except NoSuchElementException:
+                    error_handler(Prematch_Total)
+                    
+            except NoSuchElementException:
+                error_handler(Prematch_Total)
+                
+    #This part is a little sketchy, updated line/odds change to a drop down if they have changed   
+    updated_line = float(driver.find_element(By.CLASS_NAME, "bet-list").find_element(By.XPATH, ".//*[contains(@class, 'bet-odd-name__button-shown')]").text.split(" ")[-1])
+    
+    updated_odds = float(driver.find_element(By.CLASS_NAME, "bet-list").find_element(By.XPATH, ".//*[contains(@class, 'bet-odd-value')]").text)
+    
+    if abs(updated_line - Prematch_Total) >= 13:
+        if updated_odds > -120:
+            #driver.find_element(By.XPATH, "//*[@id='bet-slip-process-all']").click()
+            time.sleep(5)
+            try:
+                #elem = driver.find_element(By.CLASS_NAME, "bet-footer__container").find_element(By.XPATH, ".//*[contains(@class, 'success')]")
+                driver.find_element(By.XPATH, "//*[contains(@class, 'fa-times')]").click()
+                time.sleep(3)
+                return f"Bet Placed at {updated_line} with {updated_odds} odds"
+
+            except NoSuchElementException:
+                error_handler(Prematch_Total)
+
+        
+                       
 #Scrape Live Matchup Data
 def data_scraper():
     global Live_Lines
-    matchups = driver.find_elements(By.CLASS_NAME, 'event-list__item')
+    leagues = driver.find_elements(By.CLASS_NAME, 'panel')
+    for league in leagues:
+        league_name = league.find_element(By.CLASS_NAME, 'panel-title').text
+        if league_name == "NBA":
+            NBA = league
+    
+    matchups = NBA.find_elements(By.CLASS_NAME, 'event-list__item')
     for matchup in matchups:
         class_att = matchup.get_attribute("class")
         classes = class_att.split()
         if all("block" not in cls.lower() for cls in classes):
             teams = matchup.find_elements(By.CLASS_NAME, 'event-list__item__details__teams__team')
-            col_lines = matchup.find_elements(By.XPATH, ".//*[contains(@class, 'market-5')]")
-            for live_line in col_lines:
-                lines = live_line.find_elements(By.XPATH, ".//*[contains(@class, 'pull')]")
-                if len(lines) == 4:
-                    if lines[0].text != '':
-                        team1 = teams[0].text.split(" ")[-1]
-                        team2 = teams[1].text.split(" ")[-1]
-                        Over_Line = float(lines[0].text[1:])
-                        Over_Odds = float(lines[1].text)
-                        Under_Line = float(lines[2].text[1:])
-                        Under_Odds = float(lines[3].text)
-                        Time = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(time.time()))
-                        #Prematch_Total = Prematch_Totals.loc[Prematch_Totals["Team1"] == teams[0].text.split(" ")[-1], "Original_Total"][0]
-                        Prematch_Total = 0
-                        #new_row = {"Team1": team1, "Team2": team2, "Over_Line": Over_Line, "Over_Odds": Over_Odds, "Under_Line": Under_Line, "Under_Odds": Under_Odds, "Time": Time, "Prematch_Total": Prematch_Total}
-                        new_row = {"Team1": team1, "Team2": team2, "Over_Line": Over_Line, "Over_Odds": Over_Odds, "Under_Line": Under_Line, "Under_Odds": Under_Odds, "Time": Time}
-                        Live_Lines = Live_Lines.append(new_row, ignore_index = True)
-                        
-                        if abs(Over_Line - Prematch_Total) > 13:
-                            if Over_Line > Prematch_Total:
-                                if Under_Odds > -120:
-                                    #Bet Under
-                                    driver.execute_script("arguments[0].scrollIntoView(true)", lines[3])
-                                    lines[3].click()
-                                    time.sleep(3)
-                                    place_bet(Prematch_Total)
-                            else:
-                                if Over_Odds > -120:
-                                    #Bet Over
-                                    driver.execute_script("arguments[0].scrollIntoView(true)", lines[1])
-                                    lines[1].click()
-                                    time.sleep(3)
-                                    place_bet(Prematch_Total)
-                                    
+            col_line = matchup.find_element(By.XPATH, ".//*[contains(@class, 'market-5')]")
+            lines = col_line.find_elements(By.XPATH, ".//*[contains(@class, 'pull')]")
+            if len(lines) == 4:
+                if lines[0].text != '':
+                    team1 = teams[0].text.split(" ")[-1]
+                    team2 = teams[1].text.split(" ")[-1]
+                    Over_Line = float(lines[0].text[1:])
+                    Over_Odds = float(lines[1].text)
+                    Under_Line = float(lines[2].text[1:])
+                    Under_Odds = float(lines[3].text)
+                    Time = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(time.time()))
+                    
+                    #FIX THIS SHIT TO MATCH WITH PREMATCH TOTAL
+                    #Prematch_Total = Prematch_Totals.loc[Prematch_Totals["Team1"] == team1, "Original_Total"]
+                    Prematch_Total = 0
+                    #new_row = {"Team1": team1, "Team2": team2, "Over_Line": Over_Line, "Over_Odds": Over_Odds, "Under_Line": Under_Line, "Under_Odds": Under_Odds, "Time": Time, "Prematch_Total": Prematch_Total}
+                    new_row = {"Team1": team1, "Team2": team2, "Over_Line": Over_Line, "Over_Odds": Over_Odds, "Under_Line": Under_Line, "Under_Odds": Under_Odds, "Time": Time}
+                    Live_Lines = Live_Lines.append(new_row, ignore_index = True)
+                    #CHANGE THIS TO FIT MODEL
+                    if abs(Over_Line - Prematch_Total) >= 0:
+                        if Over_Line > Prematch_Total:
+                            if Under_Odds > -150:
+                                #Bet Under
+                                driver.execute_script("arguments[0].scrollIntoView(true)", matchup)
+                                time.sleep(3)
+                                print(f"Team1: {team1} vs. Team2: {team2} {place_bet(Prematch_Total, lines[3], Under_Line, Under_Odds)}")
+                        else:
+                            if Over_Odds > -150:
+                                #Bet Over
+                                driver.execute_script("arguments[0].scrollIntoView(true)", matchup)
+                                time.sleep(3)
+                                print(f"Team1: {team1} vs. Team2: {team2} {place_bet(Prematch_Total, lines[1], Over_Line, Over_Odds)}")
+                                
 
 
-
+"""
 #Loop Through Gamesets i times
 for i in range(5):
     data_scraper()
-        
+"""
 
+
+#Loop that will stay active until a bet is place, when ready input this to loop inside the place_bet function
+"""
+while True:
+    try:
+        elem = driver.find_element(By.CLASS_NAME, "bet-footer__container").find_element(By.XPATH, ".//*[contains(@class, 'success')]")
+        print("Bet Placed!")
+        #Exit active bet slip
+        driver.find_element(By.XPATH, "//*[contains(@class, 'fa-times')]").click()
+        time.sleep(2)
+        driver.find_element(By.CLASS_NAME, "bet-slip-badge").click()
+        time.sleep(2)
+        break
+    except NoSuchElementException:
+        continue
+"""
+        
+data_scraper()
 #Export Live Line Data to csv file for analytics
 Live_Lines.to_csv("Live_Lines_Database.csv", index = False)
 
