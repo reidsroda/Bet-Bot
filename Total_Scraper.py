@@ -6,9 +6,12 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains 
 from selenium.common.exceptions import NoSuchElementException
+import datetime
+from datetime import datetime
 import pandas as pd
 import time
 import warnings
+import sqlite3
 
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -31,6 +34,32 @@ bet_amount = 15
 #Data Storage
 Live_Lines = pd.DataFrame(columns = ["Team1", "Team2", "Over_Line", "Over_Odds", "Under_Line", "Under_Odds", "Time"])
 Prematch_Totals = pd.read_csv("Prematch_Totals.csv")
+conn = sqlite3.connect('NBA.db')
+cursor = conn.cursor()
+cursor.execute(''' CREATE TABLE IF NOT EXISTS live_lines (
+                    ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    team1 TEXT,
+                    team2 TEXT,
+                    live_total DECIMAL,
+                    live_over_odds INT,
+                    live_under_odds INT,
+                    quarter TEXT,
+                    time_remaining TIME,
+                    date DATE) ''')
+
+#Create another sqlite table for placed bets
+cursor.execute(''' CREATE TABLE IF NOT EXISTS placed_wagers (
+                    ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    team1 TEXT,
+                    team2 TEXT,
+                    live_total DECIMAL,
+                    live_odds INT,
+                    wager TEXT,
+                    to_win,
+                    date DATE
+                    time TIME) ''')
+
+conn.commit()
 
 
 #Login to Website
@@ -44,7 +73,7 @@ time.sleep(5)
 driver.find_element(By.XPATH, '/html/body/div[1]/div/header/div[2]/div[1]/div[2]').click()
 time.sleep(1)
 driver.find_element(By.XPATH, '/html/body/div[1]/div/header/div[2]/div[1]/div[2]/div/div[1]').click()
-time.sleep(11)
+time.sleep(15)
 iframe = driver.find_element(By.ID, 'ultra-live')
 driver.switch_to.frame(iframe)
 driver.find_element(By.XPATH, "//*[text()='Basketball']").click()
@@ -178,13 +207,14 @@ def error_handler(Prematch_Total):
 #Scrape Live Matchup Data
 def data_scraper():
     global Live_Lines
-    leagues = driver.find_elements(By.CLASS_NAME, 'panel')
+    """leagues = driver.find_elements(By.CLASS_NAME, 'panel')
     for league in leagues:
         league_name = league.find_element(By.CLASS_NAME, 'panel-title').text
         if league_name == "NBA":
             NBA = league
-    
     matchups = NBA.find_elements(By.CLASS_NAME, 'event-list__item')
+    """
+    matchups = driver.find_elements(By.CLASS_NAME, 'event-list__item')
     for matchup in matchups:
         class_att = matchup.get_attribute("class")
         classes = class_att.split()
@@ -192,22 +222,38 @@ def data_scraper():
             teams = matchup.find_elements(By.CLASS_NAME, 'event-list__item__details__teams__team')
             col_line = matchup.find_element(By.XPATH, ".//*[contains(@class, 'market-5')]")
             lines = col_line.find_elements(By.XPATH, ".//*[contains(@class, 'pull')]")
+            
             if len(lines) == 4:
                 if lines[0].text != '':
-                    team1 = teams[0].text.split(" ")[-1]
-                    team2 = teams[1].text.split(" ")[-1]
-                    Over_Line = float(lines[0].text[1:])
-                    Over_Odds = float(lines[1].text)
-                    Under_Line = float(lines[2].text[1:])
-                    Under_Odds = float(lines[3].text)
-                    Time = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(time.time()))
+                    #Finding quarter, time
+                    game_box = matchup.find_element(By.CLASS_NAME, "event-list__item__details__date")
+                    quarter = game_box.find_element(By.TAG_NAME, "p").text
+                    try: 
+                        time_unformatted = game_box.find_element(By.TAG_NAME, "time").text
+                        team1 = teams[0].text.split(" ")[-1]
+                        team2 = teams[1].text.split(" ")[-1]
+                        Over_Line = float(lines[0].text[1:])
+                        Over_Odds = float(lines[1].text)
+                        Under_Line = float(lines[2].text[1:])
+                        Under_Odds = float(lines[3].text)
+                        Date = datetime.today()
+                        time_obj = datetime.strptime(time_unformatted, "%M:%S")
+                        game_time = time_obj.strftime("%M:%S")
+                        game_data = (team1,team2, Over_Line, Over_Odds, Under_Odds, quarter, game_time, Date)
+                        cursor.execute("INSERT INTO live_lines (team1, team2, live_total, live_over_odds, live_under_odds, quarter, time_remaining, date) values (?, ?, ?, ?, ?, ?, ?, ?)", game_data)
+                        
+                    except ValueError:
+                        continue
                     
                     #FIX THIS SHIT TO MATCH WITH PREMATCH TOTAL
                     #Prematch_Total = Prematch_Totals.loc[Prematch_Totals["Team1"] == team1, "Original_Total"]
                     Prematch_Total = 0
                     #new_row = {"Team1": team1, "Team2": team2, "Over_Line": Over_Line, "Over_Odds": Over_Odds, "Under_Line": Under_Line, "Under_Odds": Under_Odds, "Time": Time, "Prematch_Total": Prematch_Total}
-                    new_row = {"Team1": team1, "Team2": team2, "Over_Line": Over_Line, "Over_Odds": Over_Odds, "Under_Line": Under_Line, "Under_Odds": Under_Odds, "Time": Time}
-                    Live_Lines = Live_Lines.append(new_row, ignore_index = True)
+                    #Live_Lines = Live_Lines.append(new_row, ignore_index = True)
+                    
+                    #SQLITE Testing
+                    conn.commit()
+                    """
                     #CHANGE THIS TO FIT MODEL
                     if abs(Over_Line - Prematch_Total) >= 0:
                         if Over_Line > Prematch_Total:
@@ -221,15 +267,15 @@ def data_scraper():
                                 #Bet Over
                                 driver.execute_script("arguments[0].scrollIntoView(true)", matchup)
                                 time.sleep(3)
-                                print(f"Team1: {team1} vs. Team2: {team2} {place_bet(Prematch_Total, lines[1], Over_Line, Over_Odds)}")
+                                print(f"Team1: {team1} vs. Team2: {team2} {place_bet(Prematch_Total, lines[1], Over_Line, Over_Odds)}")"""
                                 
 
 
-"""
+
 #Loop Through Gamesets i times
-for i in range(5):
+for i in range(100):
     data_scraper()
-"""
+
 
 
 #Loop that will stay active until a bet is place, when ready input this to loop inside the place_bet function
@@ -248,7 +294,9 @@ while True:
         continue
 """
         
-data_scraper()
+
+cursor.close()
+conn.close()
 #Export Live Line Data to csv file for analytics
 Live_Lines.to_csv("Live_Lines_Database.csv", index = False)
 
