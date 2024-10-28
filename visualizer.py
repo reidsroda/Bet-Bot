@@ -13,9 +13,9 @@ default_fig = dict(
                 data=[{'x':[],'y':[]}],
                 layout=dict(
                     xaxis=dict(range=[-1,1], visible = False),
-                    yaxis=dict(range=[165,195], color="white"),
+                    yaxis=dict(range=[135,165], color="white"),
                     paper_bgcolor="#2D2D2D",
-                    plot_bgcolor="#2D2D2D"
+                    plot_bgcolor="#2D2D2D",
                     ))
 
 
@@ -42,7 +42,7 @@ def update_data(intervals):
     connection = sqlite3.connect("./NBA.db")
     cursor = connection.cursor()
     
-    datap = cursor.execute("SELECT live_total FROM live_lines WHERE team1='Selfoss' ORDER BY date DESC LIMIT 1").fetchall()
+    datap = cursor.execute("SELECT live_total FROM live_lines WHERE team1='Plata' ORDER BY live_time DESC LIMIT 1").fetchall()
     y_val = datap[0]
     return (dict(x = [[time.time()]], y = [[y_val[0]]]), [0], 100), y_val[0]
     

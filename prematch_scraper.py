@@ -7,6 +7,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 import pandas as pd
+from datetime import datetime, timedelta
 import time
 import warnings
 import arrow
@@ -49,7 +50,7 @@ for row in rows:
         team2_t = cells[3].text.split(" ")
         Date_month_day = cells[0].text.split(",")[1].strip()
         Date_year = cells[0].text.split(",")[2].strip()[:4]
-        Date = arrow.get(Date_month_day + " " + Date_year, "MMMM D YYYY").format('MM-DD-YYYY')
+        Date = arrow.get(Date_month_day + " " + Date_year, "MMMM D YYYY").format('YYYY-MM-DD')
         team1 = team1_t[-1] if len(team1_t) == 1 else team2_t[-1]
         team2 = team1_t[-1] if len(team1_t) == 2 else team2_t[-1]
         try: 
